@@ -48,7 +48,9 @@ android {
 
     packaging {
         jniLibs {
-            useLegacyPackaging = true
+            // Keep native libraries uncompressed/aligned in the APK so AGP can
+            // produce 16 KB page-size compatible native packaging.
+            useLegacyPackaging = false
         }
         resources {
             excludes += setOf(
