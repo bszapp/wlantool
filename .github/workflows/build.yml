@@ -3,9 +3,6 @@ name: Build and Release
 on:
   workflow_dispatch:
 
-env:
-  NDK_VERSION: 27.2.12479018
-
 permissions:
   contents: write
 
@@ -28,71 +25,14 @@ jobs:
         with:
           packages: ''
 
-      - name: Install SDK platforms and NDK
+      - name: Install Android SDK packages
         run: |
           sdkmanager \
             "platform-tools" \
             "platforms;android-36" \
-            "build-tools;36.1.0" \
-            "ndk;$NDK_VERSION"
-
-      - name: Install build tools
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -y make file
-
-      - name: Set up NDK prefix for build.sh
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          NDK_ROOT="$ANDROID_SDK_ROOT/ndk/$NDK_VERSION"
-          NDK_PREBUILT=$(find "$NDK_ROOT/toolchains/llvm/prebuilt" \
-            -mindepth 1 -maxdepth 1 -type d | sort | head -n 1)
-          test -n "$NDK_PREBUILT"
-          test -x "$NDK_PREBUILT/bin/clang"
-
-          ANDROID_SYSROOT="$NDK_PREBUILT/sysroot"
-          test -f "$ANDROID_SYSROOT/usr/include/aarch64-linux-android/asm/unistd.h"
-
-          FAKE_PREFIX=/opt/ndk-prefix
-          sudo rm -rf "$FAKE_PREFIX"
-          sudo mkdir -p "$FAKE_PREFIX" "$FAKE_PREFIX/lib"
-          sudo ln -s "$ANDROID_SYSROOT/usr/include" "$FAKE_PREFIX/include"
-          sudo ln -s "$NDK_PREBUILT/lib/clang" "$FAKE_PREFIX/lib/clang"
-
-          echo "ANDROID_NDK_ROOT=$NDK_ROOT" >> "$GITHUB_ENV"
-          echo "ANDROID_SYSROOT=$ANDROID_SYSROOT" >> "$GITHUB_ENV"
-          echo "NDK_PREBUILT=$NDK_PREBUILT" >> "$GITHUB_ENV"
-          echo "FAKE_PREFIX=$FAKE_PREFIX" >> "$GITHUB_ENV"
-
-      - name: Cache distfiles
-        uses: actions/cache@v4
-        with:
-          path: rftoolbuilder/distfiles
-          key: distfiles-${{ hashFiles('rftoolbuilder/downloads.sh') }}
-          restore-keys: distfiles-
-
-      - name: Download distfiles
-        run: |
-          chmod +x rftoolbuilder/*.sh
-          cd rftoolbuilder
-          ./downloads.sh
-
-      - name: Build native libs and rootfs
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd rftoolbuilder
-          PREFIX="$FAKE_PREFIX" \
-          ANDROID_NDK_ROOT="$ANDROID_NDK_ROOT" \
-          ANDROID_SYSROOT="$ANDROID_SYSROOT" \
-          NDK_PREBUILT="$NDK_PREBUILT" \
-          PATH="$NDK_PREBUILT/bin:$PATH" \
-          ./build.sh
+            "build-tools;36.1.0"
 
       - name: Sanitize Android local configuration
-        if: ${{ hashFiles('app/build.gradle', 'app/build.gradle.kts') != '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -101,29 +41,28 @@ jobs:
             sed -i '/^android\.aapt2FromMavenOverride=/d' gradle.properties
           fi
 
-      - name: Build APK
-        if: ${{ hashFiles('app/build.gradle', 'app/build.gradle.kts') != '' }}
+      - name: Build app release APK
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew --no-daemon :app:assembleRelease
 
-      - name: Collect release files
+      - name: Collect app-release APK
         shell: bash
         run: |
           set -euo pipefail
+          rm -rf release
           mkdir -p release
-          if compgen -G "app/build/outputs/apk/debug/*.apk" > /dev/null; then
-            cp app/build/outputs/apk/debug/*.apk release/
+          mapfile -t apks < <(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | sort)
+          if [ "${#apks[@]}" -ne 1 ]; then
+            printf 'Expected exactly one release APK, found %s:\n' "${#apks[@]}" >&2
+            printf '%s\n' "${apks[@]}" >&2
+            exit 1
           fi
-          cp rftoolbuilder/build/out/librftool.so release/
-          cp rftoolbuilder/build/out/libproot.so release/
-          cp rftoolbuilder/build/out/libproot-loader.so release/
-          cp rftoolbuilder/build/out/rootfs.tar.gz release/
-          tar -czf release/native-artifacts.tar.gz -C rftoolbuilder/build/out .
+          cp "${apks[0]}" release/app-release.apk
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
           name: "Build #${{ github.run_number }}"
-          files: release/*
+          files: release/app-release.apk
