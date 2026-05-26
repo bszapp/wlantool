@@ -3,6 +3,9 @@ name: Build and Release
 on:
   workflow_dispatch:
 
+env:
+  NDK_VERSION: 27.2.12479018
+
 permissions:
   contents: write
 
@@ -30,7 +33,71 @@ jobs:
           sdkmanager \
             "platform-tools" \
             "platforms;android-36" \
-            "build-tools;36.1.0"
+            "build-tools;36.1.0" \
+            "ndk;$NDK_VERSION"
+
+      - name: Install native build tools
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y curl make file unzip
+
+      - name: Set up NDK sysroot for native build
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          NDK_ROOT="$ANDROID_SDK_ROOT/ndk/$NDK_VERSION"
+          NDK_PREBUILT=$(find "$NDK_ROOT/toolchains/llvm/prebuilt" \
+            -mindepth 1 -maxdepth 1 -type d | sort | head -n 1)
+          test -n "$NDK_PREBUILT"
+          test -x "$NDK_PREBUILT/bin/clang"
+
+          ANDROID_SYSROOT="$NDK_PREBUILT/sysroot"
+          test -f "$ANDROID_SYSROOT/usr/include/linux/limits.h"
+          test -f "$ANDROID_SYSROOT/usr/include/aarch64-linux-android/asm/unistd.h"
+
+          FAKE_PREFIX=/opt/ndk-prefix
+          sudo rm -rf "$FAKE_PREFIX"
+          sudo mkdir -p "$FAKE_PREFIX" "$FAKE_PREFIX/lib"
+          sudo ln -s "$ANDROID_SYSROOT/usr/include" "$FAKE_PREFIX/include"
+          sudo ln -s "$NDK_PREBUILT/lib/clang" "$FAKE_PREFIX/lib/clang"
+
+          echo "ANDROID_NDK_ROOT=$NDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SYSROOT=$ANDROID_SYSROOT" >> "$GITHUB_ENV"
+          echo "NDK_PREBUILT=$NDK_PREBUILT" >> "$GITHUB_ENV"
+          echo "FAKE_PREFIX=$FAKE_PREFIX" >> "$GITHUB_ENV"
+
+      - name: Cache native distfiles
+        uses: actions/cache@v4
+        with:
+          path: rftoolbuilder/distfiles
+          key: distfiles-${{ hashFiles('rftoolbuilder/downloads.sh') }}
+          restore-keys: distfiles-
+
+      - name: Download native distfiles
+        run: |
+          chmod +x rftoolbuilder/*.sh
+          cd rftoolbuilder
+          ./downloads.sh
+
+      - name: Build and embed rootfs/native libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd rftoolbuilder
+          PREFIX="$FAKE_PREFIX" \
+          ANDROID_NDK_ROOT="$ANDROID_NDK_ROOT" \
+          ANDROID_SYSROOT="$ANDROID_SYSROOT" \
+          NDK_PREBUILT="$NDK_PREBUILT" \
+          PATH="$NDK_PREBUILT/bin:$PATH" \
+          ./build.sh
+
+          cd ..
+          test -s app/src/main/assets/rootfs.tar.gz
+          test -s app/src/main/jniLibs/arm64-v8a/librftool.so
+          test -s app/src/main/jniLibs/arm64-v8a/libproot.so
+          test -s app/src/main/jniLibs/arm64-v8a/libproot-loader.so
+          ls -lh app/src/main/assets/rootfs.tar.gz app/src/main/jniLibs/arm64-v8a/*.so
 
       - name: Sanitize Android local configuration
         shell: bash
@@ -41,12 +108,12 @@ jobs:
             sed -i '/^android\.aapt2FromMavenOverride=/d' gradle.properties
           fi
 
-      - name: Build app release APK
+      - name: Build signed app-release APK
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon :app:assembleRelease
 
-      - name: Collect app-release APK
+      - name: Collect and verify single release APK
         shell: bash
         run: |
           set -euo pipefail
@@ -59,6 +126,13 @@ jobs:
             exit 1
           fi
           cp "${apks[0]}" release/app-release.apk
+
+          unzip -l release/app-release.apk | tee /tmp/app-release-contents.txt
+          grep -q 'assets/rootfs.tar.gz' /tmp/app-release-contents.txt
+          grep -q 'lib/arm64-v8a/librftool.so' /tmp/app-release-contents.txt
+          grep -q 'lib/arm64-v8a/libproot.so' /tmp/app-release-contents.txt
+          grep -q 'lib/arm64-v8a/libproot-loader.so' /tmp/app-release-contents.txt
+          ls -lh release/app-release.apk
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
