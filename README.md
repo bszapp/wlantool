@@ -19,4 +19,4 @@ wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant.conf && wpa_cli -i wlan0
 
 chroot必须设备有root（su命令可用）
 
-其他：项目源码全透明构建不含预编译二进制（环境从alpinelinux等官方源下载预编译系统包），发行版使用github action构建
+其他：发行版使用github action构建，环境打包过程全透明
