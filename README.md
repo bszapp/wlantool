@@ -4,7 +4,7 @@
 - python 3.12
 - iw
 - wpa_supplicant
-- oneshot.py（详见https://github.com/kimocoder/oneshot）
+- oneshot.py（详见 https://github.com/kimocoder/oneshot ）
 
 常用命令：
 ```
