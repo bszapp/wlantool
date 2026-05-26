@@ -91,6 +91,16 @@ jobs:
           PATH="$NDK_PREBUILT/bin:$PATH" \
           ./build.sh
 
+      - name: Sanitize Android local configuration
+        if: ${{ hashFiles('app/build.gradle', 'app/build.gradle.kts') != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f local.properties
+          if [ -f gradle.properties ]; then
+            sed -i '/^android\.aapt2FromMavenOverride=/d' gradle.properties
+          fi
+
       - name: Build APK
         if: ${{ hashFiles('app/build.gradle', 'app/build.gradle.kts') != '' }}
         run: |
