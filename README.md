@@ -18,3 +18,5 @@ wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant.conf && wpa_cli -i wlan0
 使用chroot才能运行上述命令，proot只能用python，其他权限不够
 
 chroot必须设备有root（su命令可用）
+
+其他：项目源码全透明构建不含预编译二进制（环境从alpinelinux等官方源下载预编译系统包），发行版使用github action构建
