@@ -32,6 +32,10 @@ if [ -z "$ANDROID_SYSROOT" ] && [ -n "$ANDROID_NDK_ROOT" ]; then
     fi
   done
 fi
+SYSROOT_INCLUDE=
+if [ -n "$ANDROID_SYSROOT" ] && [ -d "$ANDROID_SYSROOT/usr/include" ]; then
+  SYSROOT_INCLUDE=$ANDROID_SYSROOT/usr/include
+fi
 TARGET=aarch64-linux-musl
 ANDROID_TARGET=aarch64-linux-android24
 JAVA_HOME_DIR=${JAVA_HOME:-/data/data/com.termux/files/usr/lib/jvm/java-21-openjdk}
@@ -99,21 +103,18 @@ if [ ! -f "$CLANG_RT_BUILTINS" ]; then
 fi
 [ -n "$CLANG_RT_BUILTINS" ] && [ -f "$CLANG_RT_BUILTINS" ] || die "could not locate compiler-rt builtins for $TARGET"
 KERNEL_UAPI=
-for candidate in "$TERMUX_PREFIX"/include/*-linux-android; do
+for candidate in   "$TERMUX_PREFIX"/include/*-linux-android   "$SYSROOT_INCLUDE"/aarch64-linux-android; do
   if [ -d "$candidate" ] && [ -f "$candidate/asm/unistd.h" ]; then
     KERNEL_UAPI=$candidate
     break
   fi
 done
-if [ -z "$KERNEL_UAPI" ] && [ -n "$ANDROID_SYSROOT" ]; then
-  for candidate in "$ANDROID_SYSROOT/usr/include/aarch64-linux-android" "$ANDROID_SYSROOT/usr/include"; do
-    if [ -d "$candidate" ] && [ -f "$candidate/asm/unistd.h" ]; then
-      KERNEL_UAPI=$candidate
-      break
-    fi
-  done
+[ -n "$KERNEL_UAPI" ] || die "could not locate Android/Termux target architecture headers"
+if [ -n "$SYSROOT_INCLUDE" ]; then
+  [ -f "$SYSROOT_INCLUDE/linux/limits.h" ] || die "could not locate Android UAPI linux headers under $SYSROOT_INCLUDE"
+elif [ ! -f "$TERMUX_PREFIX/include/linux/limits.h" ]; then
+  die "could not locate Linux UAPI headers under $TERMUX_PREFIX/include"
 fi
-[ -n "$KERNEL_UAPI" ] || die "could not locate Android/Termux target sysroot headers"
 [ -f "$JNI_INCLUDE_DIR/jni.h" ] || die "could not locate jni.h under $JNI_INCLUDE_DIR"
 [ -d "$JNI_PLATFORM_INCLUDE_DIR" ] || die "could not locate JNI platform headers under $JNI_PLATFORM_INCLUDE_DIR"
 
@@ -124,12 +125,29 @@ for required in \
   "$DIST_DIR/proot-termux-58aad2cb1c36ea6af7b32d76ccd5bf8d0a967939.tar.gz" \
   "$DIST_DIR/alpine/alpine-minirootfs-3.23.4-aarch64.tar.gz" \
   "$DIST_DIR/alpine/dbus-libs-1.16.2-r1.apk" \
+  "$DIST_DIR/alpine/gdbm-1.26-r0.apk" \
+  "$DIST_DIR/alpine/libbz2-1.0.8-r6.apk" \
+  "$DIST_DIR/alpine/libcrypto3-3.5.6-r0.apk" \
+  "$DIST_DIR/alpine/libexpat-2.7.5-r0.apk" \
+  "$DIST_DIR/alpine/libffi-3.5.2-r0.apk" \
+  "$DIST_DIR/alpine/libgcc-15.2.0-r2.apk" \
+  "$DIST_DIR/alpine/libncursesw-6.5_p20251123-r0.apk" \
+  "$DIST_DIR/alpine/libnl3-3.11.0-r0.apk" \
+  "$DIST_DIR/alpine/libpanelw-6.5_p20251123-r0.apk" \
+  "$DIST_DIR/alpine/libssl3-3.5.6-r0.apk" \
+  "$DIST_DIR/alpine/libstdc++-15.2.0-r2.apk" \
+  "$DIST_DIR/alpine/mpdecimal-4.0.1-r0.apk" \
+  "$DIST_DIR/alpine/musl-1.2.5-r23.apk" \
+  "$DIST_DIR/alpine/ncurses-terminfo-base-6.5_p20251123-r0.apk" \
+  "$DIST_DIR/alpine/pcsc-lite-libs-2.4.0-r1.apk" \
   "$DIST_DIR/alpine/python3-3.12.13-r0.apk" \
   "$DIST_DIR/alpine/py3-wcwidth-0.2.13-r1.apk" \
-  "$DIST_DIR/alpine/libnl3-3.11.0-r0.apk" \
+  "$DIST_DIR/alpine/readline-8.3.1-r0.apk" \
+  "$DIST_DIR/alpine/sqlite-libs-3.51.2-r0.apk" \
   "$DIST_DIR/alpine/iw-6.17-r0.apk" \
-  "$DIST_DIR/alpine/pcsc-lite-libs-2.4.0-r1.apk" \
-  "$DIST_DIR/alpine/wpa_supplicant-2.11-r3.apk"; do
+  "$DIST_DIR/alpine/wpa_supplicant-2.11-r3.apk" \
+  "$DIST_DIR/alpine/xz-libs-5.8.3-r0.apk" \
+  "$DIST_DIR/alpine/zlib-1.3.2-r0.apk"; do
   [ -f "$required" ] || die "missing distfile: $required"
 done
 
@@ -177,6 +195,7 @@ cat > "$BUILD_DIR/musl-cc" <<EOF
 set -eu
 MUSL_PREFIX=$MUSL_PREFIX
 TERMUX_PREFIX=$TERMUX_PREFIX
+SYSROOT_INCLUDE=$SYSROOT_INCLUDE
 KERNEL_UAPI=$KERNEL_UAPI
 TARGET=$TARGET
 CC=$HOST_CC
@@ -187,8 +206,11 @@ COMMON_FLAGS="
   -nostdinc
   -isystem \$MUSL_PREFIX/include
   -isystem \$TERMUX_PREFIX/include
-  -isystem \$KERNEL_UAPI
 "
+if [ -n "\$SYSROOT_INCLUDE" ]; then
+  COMMON_FLAGS="\$COMMON_FLAGS -isystem \$SYSROOT_INCLUDE"
+fi
+COMMON_FLAGS="\$COMMON_FLAGS -isystem \$KERNEL_UAPI"
 
 LINKER_FLAGS="
   -nostdlib
@@ -251,7 +273,7 @@ cd "$PROOT_SRC/src"
 "$MAKE_TOOL" -j"$JOBS" V=1 \
   CC="$BUILD_DIR/musl-cc" \
   LD="$BUILD_DIR/musl-cc" \
-  CPPFLAGS="-D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -I$TALLOC_PREFIX/include -I$KERNEL_UAPI -I. -I$PROOT_SRC/src" \
+  CPPFLAGS="-D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -I$TALLOC_PREFIX/include${SYSROOT_INCLUDE:+ -I$SYSROOT_INCLUDE} -I$KERNEL_UAPI -I. -I$PROOT_SRC/src" \
   LDFLAGS="-L$TALLOC_PREFIX/lib -ltalloc -Wl,-z,noexecstack" \
   STRIP="$STRIP_TOOL" \
   OBJCOPY="$OBJCOPY_TOOL" \

@@ -57,9 +57,8 @@ jobs:
 
           FAKE_PREFIX=/opt/ndk-prefix
           sudo rm -rf "$FAKE_PREFIX"
-          sudo mkdir -p "$FAKE_PREFIX/include" "$FAKE_PREFIX/lib"
-          sudo ln -s "$ANDROID_SYSROOT/usr/include/aarch64-linux-android" \
-            "$FAKE_PREFIX/include/aarch64-linux-android"
+          sudo mkdir -p "$FAKE_PREFIX" "$FAKE_PREFIX/lib"
+          sudo ln -s "$ANDROID_SYSROOT/usr/include" "$FAKE_PREFIX/include"
           sudo ln -s "$NDK_PREBUILT/lib/clang" "$FAKE_PREFIX/lib/clang"
 
           echo "ANDROID_NDK_ROOT=$NDK_ROOT" >> "$GITHUB_ENV"
