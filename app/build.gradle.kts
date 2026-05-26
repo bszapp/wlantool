@@ -27,6 +27,8 @@ android {
             isDebuggable = false
             isMinifyEnabled = true
             isShrinkResources = true
+            // GitHub Actions does not run a separate signing step.
+            // The release APK is signed here with Android's default debug keystore.
             signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

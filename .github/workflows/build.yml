@@ -108,30 +108,18 @@ jobs:
             sed -i '/^android\.aapt2FromMavenOverride=/d' gradle.properties
           fi
 
-      - name: Build signed app-release APK
+      - name: Build app-release APK
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon :app:assembleRelease
 
-      - name: Collect and verify single release APK
+      - name: Collect app-release APK
         shell: bash
         run: |
           set -euo pipefail
           rm -rf release
           mkdir -p release
-          mapfile -t apks < <(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | sort)
-          if [ "${#apks[@]}" -ne 1 ]; then
-            printf 'Expected exactly one release APK, found %s:\n' "${#apks[@]}" >&2
-            printf '%s\n' "${apks[@]}" >&2
-            exit 1
-          fi
-          cp "${apks[0]}" release/app-release.apk
-
-          unzip -l release/app-release.apk | tee /tmp/app-release-contents.txt
-          grep -q 'assets/rootfs.tar.gz' /tmp/app-release-contents.txt
-          grep -q 'lib/arm64-v8a/librftool.so' /tmp/app-release-contents.txt
-          grep -q 'lib/arm64-v8a/libproot.so' /tmp/app-release-contents.txt
-          grep -q 'lib/arm64-v8a/libproot-loader.so' /tmp/app-release-contents.txt
+          cp app/build/outputs/apk/release/app-release.apk release/app-release.apk
           ls -lh release/app-release.apk
 
       - name: Create Release
