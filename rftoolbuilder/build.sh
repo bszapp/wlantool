@@ -18,6 +18,20 @@ PROOT_LOADER_SO=$OUT_DIR/libproot-loader.so
 APP_ASSETS_DIR=$ROOT_DIR/../app/src/main/assets
 APP_JNI_DIR=$ROOT_DIR/../app/src/main/jniLibs/arm64-v8a
 TERMUX_PREFIX=${PREFIX:-/data/data/com.termux/files/usr}
+ANDROID_NDK_ROOT=${ANDROID_NDK_ROOT:-${ANDROID_NDK_HOME:-${NDK_ROOT:-}}}
+NDK_PREBUILT=${NDK_PREBUILT:-}
+ANDROID_SYSROOT=${ANDROID_SYSROOT:-}
+if [ -z "$ANDROID_SYSROOT" ] && [ -n "$NDK_PREBUILT" ] && [ -d "$NDK_PREBUILT/sysroot/usr/include" ]; then
+  ANDROID_SYSROOT=$NDK_PREBUILT/sysroot
+fi
+if [ -z "$ANDROID_SYSROOT" ] && [ -n "$ANDROID_NDK_ROOT" ]; then
+  for candidate in "$ANDROID_NDK_ROOT"/toolchains/llvm/prebuilt/*/sysroot; do
+    if [ -d "$candidate/usr/include" ]; then
+      ANDROID_SYSROOT=$candidate
+      break
+    fi
+  done
+fi
 TARGET=aarch64-linux-musl
 ANDROID_TARGET=aarch64-linux-android24
 JAVA_HOME_DIR=${JAVA_HOME:-/data/data/com.termux/files/usr/lib/jvm/java-21-openjdk}
@@ -43,7 +57,14 @@ pick_tool() {
   return 1
 }
 
-[ "$(uname -m)" = "aarch64" ] || die "this bundle is prepared for aarch64 only"
+HOST_ARCH=$(uname -m)
+case "$HOST_ARCH" in
+  aarch64|arm64|x86_64|amd64)
+    ;;
+  *)
+    die "unsupported build host architecture: $HOST_ARCH"
+    ;;
+esac
 
 HOST_CC=$(pick_tool clang cc) || die "need clang/cc from Termux"
 AR_TOOL=$(pick_tool llvm-ar ar) || die "need llvm-ar or ar"
@@ -68,7 +89,13 @@ need_tool mkdir
 JOBS=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)
 CLANG_RT_BUILTINS=$("$HOST_CC" --target="$TARGET" --rtlib=compiler-rt --print-libgcc-file-name)
 if [ ! -f "$CLANG_RT_BUILTINS" ]; then
-  CLANG_RT_BUILTINS=$(find "$TERMUX_PREFIX/lib/clang" -name 'libclang_rt.builtins-aarch64-android.a' | head -n 1)
+  CLANG_RT_BUILTINS=
+  for clang_dir in "$TERMUX_PREFIX/lib/clang" "$NDK_PREBUILT/lib/clang"; do
+    if [ -d "$clang_dir" ]; then
+      CLANG_RT_BUILTINS=$(find "$clang_dir" -name 'libclang_rt.builtins-aarch64-android.a' | head -n 1)
+      [ -n "$CLANG_RT_BUILTINS" ] && break
+    fi
+  done
 fi
 [ -n "$CLANG_RT_BUILTINS" ] && [ -f "$CLANG_RT_BUILTINS" ] || die "could not locate compiler-rt builtins for $TARGET"
 KERNEL_UAPI=
@@ -78,7 +105,15 @@ for candidate in "$TERMUX_PREFIX"/include/*-linux-android; do
     break
   fi
 done
-[ -n "$KERNEL_UAPI" ] || die "could not locate Termux target sysroot headers"
+if [ -z "$KERNEL_UAPI" ] && [ -n "$ANDROID_SYSROOT" ]; then
+  for candidate in "$ANDROID_SYSROOT/usr/include/aarch64-linux-android" "$ANDROID_SYSROOT/usr/include"; do
+    if [ -d "$candidate" ] && [ -f "$candidate/asm/unistd.h" ]; then
+      KERNEL_UAPI=$candidate
+      break
+    fi
+  done
+fi
+[ -n "$KERNEL_UAPI" ] || die "could not locate Android/Termux target sysroot headers"
 [ -f "$JNI_INCLUDE_DIR/jni.h" ] || die "could not locate jni.h under $JNI_INCLUDE_DIR"
 [ -d "$JNI_PLATFORM_INCLUDE_DIR" ] || die "could not locate JNI platform headers under $JNI_PLATFORM_INCLUDE_DIR"
 
@@ -300,8 +335,13 @@ tar \
   .
 
 cd "$BUILD_DIR"
+ANDROID_SYSROOT_FLAG=
+if [ -n "$ANDROID_SYSROOT" ]; then
+  ANDROID_SYSROOT_FLAG=--sysroot=$ANDROID_SYSROOT
+fi
 "$HOST_CC" \
   --target="$ANDROID_TARGET" \
+  $ANDROID_SYSROOT_FLAG \
   -shared \
   -fPIC \
   -O2 \
