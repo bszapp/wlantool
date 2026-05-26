@@ -21,13 +21,16 @@ jobs:
           distribution: 'temurin'
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ''
 
       - name: Install SDK platforms and NDK
         run: |
           sdkmanager \
+            "platform-tools" \
             "platforms;android-36" \
-            "build-tools;35.0.0" \
+            "build-tools;36.1.0" \
             "ndk;27.2.12479018"
 
       - name: Install build tools
@@ -39,13 +42,17 @@ jobs:
         run: |
           NDK_PREBUILT=$ANDROID_SDK_ROOT/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-aarch64
           FAKE_PREFIX=/opt/ndk-prefix
+
           mkdir -p $FAKE_PREFIX/include $FAKE_PREFIX/lib
+
           ln -sfn $NDK_PREBUILT/sysroot/usr/include/aarch64-linux-android \
             $FAKE_PREFIX/include/aarch64-linux-android
+
           ln -sfn $NDK_PREBUILT/lib/clang \
             $FAKE_PREFIX/lib/clang
+
           echo "NDK_PREBUILT=$NDK_PREBUILT" >> $GITHUB_ENV
-          echo "FAKE_PREFIX=$FAKE_PREFIX"   >> $GITHUB_ENV
+          echo "FAKE_PREFIX=$FAKE_PREFIX" >> $GITHUB_ENV
 
       - name: Cache distfiles
         uses: actions/cache@v4
