@@ -1,9 +1,37 @@
-val generatedJniDir = layout.buildDirectory.dir("generated/native-jni").get().asFile
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.TaskAction
+
+val generatedJniDir = layout.buildDirectory.dir("generated/native-jni")
 
 // Proot binaries are produced by a CMake add_custom_command (not add_library),
 // so AGP 9.x does not automatically track them as native-build outputs.
-// We stage them into a dedicated directory that AGP does track via jniLibs.srcDir.
+// Register the staging task output through the Variant Sources API instead of
+// passing a Provider to android.sourceSets, which AGP 9 rejects by default.
 val prootStagingDir = layout.buildDirectory.dir("generated/proot-jni")
+
+abstract class StageProotLibsTask : DefaultTask() {
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val inputDir: DirectoryProperty
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun stage() {
+        project.copy {
+            from(inputDir) {
+                include("**/libproot.so", "**/libproot-loader.so")
+            }
+            into(outputDir)
+        }
+    }
+}
 
 plugins {
     alias(libs.plugins.android.application)
@@ -31,7 +59,7 @@ android {
 
         externalNativeBuild {
             cmake {
-                arguments += "-DAPP_GENERATED_JNI_DIR=${generatedJniDir.absolutePath}"
+                arguments += "-DAPP_GENERATED_JNI_DIR=${generatedJniDir.get().asFile.absolutePath}"
             }
         }
     }
@@ -67,15 +95,6 @@ android {
         }
     }
 
-    sourceSets {
-        getByName("main") {
-            // Use the staging directory so AGP sees libproot.so and libproot-loader.so
-            // as explicit JNI library inputs rather than relying on the shared cmake
-            // output directory (which AGP partially tracks via add_library outputs).
-            jniLibs.srcDir(prootStagingDir)
-        }
-    }
-
     packaging {
         jniLibs {
             useLegacyPackaging = true
@@ -99,34 +118,35 @@ android {
 // Stage proot binaries (produced by CMake add_custom_command) into a dedicated
 // directory so that AGP JNI-lib merging can track them as explicit inputs.
 // ---------------------------------------------------------------------------
-val stageProotLibs by tasks.registering(Copy::class) {
+val stageProotLibs by tasks.registering(StageProotLibsTask::class) {
     description = "Copies libproot.so and libproot-loader.so from CMake output into " +
             "the proot JNI staging directory so AGP packages them in the APK."
 
     // Source: CMake writes both proot executables into OUTPUT_ABI_DIR which is
     //         APP_GENERATED_JNI_DIR/<abi>  =  generatedJniDir/<abi>.
-    from(generatedJniDir) {
-        include("**/libproot.so", "**/libproot-loader.so")
+    inputDir.set(generatedJniDir)
+    outputDir.set(prootStagingDir)
+}
+
+androidComponents {
+    onVariants { variant ->
+        // Register the staging task output as generated JNI libraries. This avoids
+        // the AGP 9 error caused by adding a Provider to android.sourceSets and
+        // lets AGP carry the task dependency to JNI-lib consumers.
+        variant.sources.jniLibs?.addGeneratedSourceDirectory(
+            stageProotLibs,
+            StageProotLibsTask::outputDir
+        )
     }
-    into(prootStagingDir)
 }
 
 // Wire task dependencies:
-//   externalNativeBuild* (CMake builds libproot.so) → stageProotLibs → merge*NativeLibs
+//   externalNativeBuild* (CMake builds libproot.so) → stageProotLibs.
+//   stageProotLibs → JNI-lib consumers is wired by addGeneratedSourceDirectory.
 afterEvaluate {
     // stageProotLibs must run after all externalNativeBuild tasks
     tasks.matching { it.name.startsWith("externalNativeBuild") }.configureEach {
         stageProotLibs.get().dependsOn(this)
-    }
-
-    // JNI-lib merge tasks must run after stageProotLibs so they see the staged files
-    tasks.matching { task ->
-        val n = task.name
-        (n.startsWith("merge") && n.endsWith("NativeLibs")) ||
-        (n.startsWith("merge") && n.endsWith("JniLibFolders")) ||
-        (n.startsWith("merge") && n.endsWith("JniLibs"))
-    }.configureEach {
-        dependsOn(stageProotLibs)
     }
 }
 
