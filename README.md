@@ -15,6 +15,15 @@ python3 oneshot.py -i wlan0 -K
 wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant.conf && wpa_cli -i wlan0
 ```
 
+抓握手包（需要指定信道）
+```
+ip link set wlan0 down
+iw wlan0 set type monitor
+ip link set wlan0 up
+iw dev wlan0 set channel 153 HT20
+tcpdump -i wlan0 -e -n ether proto 0x888e
+```
+
 使用chroot才能运行上述命令，proot只能用python，其他权限不够
 
 chroot必须设备有root（su命令可用）
