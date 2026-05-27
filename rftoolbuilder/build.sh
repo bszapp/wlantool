@@ -47,8 +47,10 @@ for required in \
   "$DIST_DIR/alpine/pcsc-lite-libs-2.4.0-r1.apk" \
   "$DIST_DIR/alpine/python3-3.12.13-r0.apk" \
   "$DIST_DIR/alpine/py3-wcwidth-0.2.13-r1.apk" \
+  "$DIST_DIR/alpine/libpcap-1.10.5-r1.apk" \
   "$DIST_DIR/alpine/readline-8.3.1-r0.apk" \
   "$DIST_DIR/alpine/sqlite-libs-3.51.2-r0.apk" \
+  "$DIST_DIR/alpine/tcpdump-4.99.5-r1.apk" \
   "$DIST_DIR/alpine/iw-6.17-r0.apk" \
   "$DIST_DIR/alpine/wpa_supplicant-2.11-r3.apk" \
   "$DIST_DIR/alpine/xz-libs-5.8.3-r0.apk" \
@@ -81,8 +83,10 @@ for pkg in \
   pcsc-lite-libs-2.4.0-r1.apk \
   python3-3.12.13-r0.apk \
   py3-wcwidth-0.2.13-r1.apk \
+  libpcap-1.10.5-r1.apk \
   readline-8.3.1-r0.apk \
   sqlite-libs-3.51.2-r0.apk \
+  tcpdump-4.99.5-r1.apk \
   iw-6.17-r0.apk \
   wpa_supplicant-2.11-r3.apk \
   xz-libs-5.8.3-r0.apk \

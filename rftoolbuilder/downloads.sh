@@ -100,8 +100,10 @@ alpine/ncurses-terminfo-base-6.5_p20251123-r0.apk|6952a6b39abaf7bbc498cb085f0f59
 alpine/pcsc-lite-libs-2.4.0-r1.apk|8b436b649abc801ff52c943d5248e1e4085599193c3340a458ff32417325bab4|https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/pcsc-lite-libs-2.4.0-r1.apk
 alpine/python3-3.12.13-r0.apk|ede3fca8b8339f8f4854a3b2a42fe7e1cc9594cca2951019a4c023546410e029|https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/python3-3.12.13-r0.apk
 alpine/py3-wcwidth-0.2.13-r1.apk|debb55542573c7db5e0f3162cffda6c1f616f0df1f086fa7bda65dc82be7f6df|https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/py3-wcwidth-0.2.13-r1.apk
+alpine/libpcap-1.10.5-r1.apk|8ef83f428101a4cd8fa11f39987c4016e8b78f62ec5c79867482fe42025ed755|https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/libpcap-1.10.5-r1.apk
 alpine/readline-8.3.1-r0.apk|70d288a6c3d8daf19b10fb220120d2ebd6f154011c96ca5bc84923b658cb21f7|https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/readline-8.3.1-r0.apk
 alpine/sqlite-libs-3.51.2-r0.apk|0264d50e8ae451804bc0ae2833f18a465a743443bc4ff4e166b50233a1b0cda4|https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/sqlite-libs-3.51.2-r0.apk
+alpine/tcpdump-4.99.5-r1.apk|cd078660c053520e4dc1866276706d2f95c7862980e85fe833233429aaedf479|https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/tcpdump-4.99.5-r1.apk
 alpine/iw-6.17-r0.apk|aa98f90f196d1dab15a749215bff4aed48b75c61bc64ff23495e8052979c32da|https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/iw-6.17-r0.apk
 alpine/wpa_supplicant-2.11-r3.apk|aea1caa2a0bfd07314886ddfeb66d76daddce6af38b0baa17d1718d7596bb558|https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/wpa_supplicant-2.11-r3.apk
 alpine/xz-libs-5.8.3-r0.apk|6123d4fc5be222318236887639047b844214f609e75abee6b4e6528f44d76be4|https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/xz-libs-5.8.3-r0.apk
