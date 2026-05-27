@@ -1,9 +1,8 @@
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
-import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.DisableCachingByDefault
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputDirectory
-import org.gradle.api.tasks.PathSensitive
-import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 
 val generatedJniDir = layout.buildDirectory.dir("generated/native-jni")
@@ -12,11 +11,10 @@ val generatedJniDir = layout.buildDirectory.dir("generated/native-jni")
 // so AGP 9.x does not automatically track them as native-build outputs.
 // Register the staging task output through the Variant Sources API instead of
 // passing a Provider to android.sourceSets, which AGP 9 rejects by default.
-val prootStagingDir = layout.buildDirectory.dir("generated/proot-jni")
 
+@DisableCachingByDefault(because = "Only stages generated native artifacts for APK packaging.")
 abstract class StageProotLibsTask : DefaultTask() {
-    @get:InputDirectory
-    @get:PathSensitive(PathSensitivity.RELATIVE)
+    @get:Internal
     abstract val inputDir: DirectoryProperty
 
     @get:OutputDirectory
@@ -24,11 +22,22 @@ abstract class StageProotLibsTask : DefaultTask() {
 
     @TaskAction
     fun stage() {
+        val source = inputDir.get().asFile
+        val target = outputDir.get().asFile
+
+        project.delete(target)
+        target.mkdirs()
+
+        if (!source.isDirectory) {
+            logger.warn("Proot JNI source directory does not exist yet: ${source.absolutePath}")
+            return
+        }
+
         project.copy {
-            from(inputDir) {
+            from(source) {
                 include("**/libproot.so", "**/libproot-loader.so")
             }
-            into(outputDir)
+            into(target)
         }
     }
 }
@@ -116,20 +125,30 @@ android {
 
 // ---------------------------------------------------------------------------
 // Stage proot binaries (produced by CMake add_custom_command) into a dedicated
-// directory so that AGP JNI-lib merging can track them as explicit inputs.
+// per-variant directory so that AGP JNI-lib merging can track them as explicit
+// generated JNI-library inputs.
 // ---------------------------------------------------------------------------
-val stageProotLibs by tasks.registering(StageProotLibsTask::class) {
-    description = "Copies libproot.so and libproot-loader.so from CMake output into " +
-            "the proot JNI staging directory so AGP packages them in the APK."
-
-    // Source: CMake writes both proot executables into OUTPUT_ABI_DIR which is
-    //         APP_GENERATED_JNI_DIR/<abi>  =  generatedJniDir/<abi>.
-    inputDir.set(generatedJniDir)
-    outputDir.set(prootStagingDir)
-}
-
 androidComponents {
     onVariants { variant ->
+        val variantName = variant.name.replaceFirstChar { it.uppercase() }
+        val stageProotLibs = tasks.register<StageProotLibsTask>("stage${variantName}ProotLibs") {
+            description = "Copies libproot.so and libproot-loader.so from CMake output into " +
+                    "the ${variant.name} proot JNI staging directory so AGP packages them in the APK."
+
+            // Source: CMake writes both proot executables into OUTPUT_ABI_DIR which is
+            //         APP_GENERATED_JNI_DIR/<abi>  =  generatedJniDir/<abi>.
+            inputDir.set(generatedJniDir)
+            outputDir.set(layout.buildDirectory.dir("generated/proot-jni/${variant.name}"))
+
+            // CMake produces inputDir. Keep this dependency variant-specific so the
+            // staging task cannot be validated/executed before externalNativeBuild*.
+            dependsOn("externalNativeBuild${variantName}")
+
+            // Native outputs can change underneath the staging directory; always
+            // refresh this lightweight copy step when it participates in a build.
+            outputs.upToDateWhen { false }
+        }
+
         // Register the staging task output as generated JNI libraries. This avoids
         // the AGP 9 error caused by adding a Provider to android.sourceSets and
         // lets AGP carry the task dependency to JNI-lib consumers.
@@ -137,16 +156,6 @@ androidComponents {
             stageProotLibs,
             StageProotLibsTask::outputDir
         )
-    }
-}
-
-// Wire task dependencies:
-//   externalNativeBuild* (CMake builds libproot.so) → stageProotLibs.
-//   stageProotLibs → JNI-lib consumers is wired by addGeneratedSourceDirectory.
-afterEvaluate {
-    // stageProotLibs must run after all externalNativeBuild tasks
-    tasks.matching { it.name.startsWith("externalNativeBuild") }.configureEach {
-        stageProotLibs.get().dependsOn(this)
     }
 }
 
