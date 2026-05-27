@@ -25,7 +25,9 @@ abstract class StageProotLibsTask : DefaultTask() {
         val source = inputDir.get().asFile
         val target = outputDir.get().asFile
 
-        project.delete(target)
+        if (target.exists()) {
+            target.deleteRecursively()
+        }
         target.mkdirs()
 
         if (!source.isDirectory) {
@@ -33,12 +35,13 @@ abstract class StageProotLibsTask : DefaultTask() {
             return
         }
 
-        project.copy {
-            from(source) {
-                include("**/libproot.so", "**/libproot-loader.so")
+        source.walkTopDown()
+            .filter { it.isFile && (it.name == "libproot.so" || it.name == "libproot-loader.so") }
+            .forEach { file ->
+                val destination = target.resolve(file.relativeTo(source))
+                destination.parentFile.mkdirs()
+                file.copyTo(destination, overwrite = true)
             }
-            into(target)
-        }
     }
 }
 
