@@ -13,3 +13,9 @@ app/src/main/assets/rootfs.tar.gz
 rftoolbuilder/build/
 rftoolbuilder/distfiles/
 rftoolbuilder/rootfsbuilder.zip
+
+# Release signing files must only be supplied by GitHub Secrets.
+*.jks
+*.keystore
+*.p12
+*.pfx

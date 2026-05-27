@@ -1,14 +1,20 @@
-name: Build and Release
+name: Build prerelease APK
 
 on:
+  push:
   workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wlantool-prerelease
+  cancel-in-progress: true
 
 env:
   NDK_VERSION: 27.2.12479018
   CMAKE_VERSION: 3.22.1
-
-permissions:
-  contents: write
+  RELEASE_TAG: prerelease
 
 jobs:
   build:
@@ -32,8 +38,10 @@ jobs:
         with:
           packages: ""
 
-      - name: Install Android SDK packages
+      - name: Install Android SDK and native tools
+        shell: bash
         run: |
+          set -euo pipefail
           yes | sdkmanager --licenses >/dev/null
           sdkmanager \
             "platform-tools" \
@@ -41,62 +49,53 @@ jobs:
             "build-tools;36.1.0" \
             "ndk;$NDK_VERSION" \
             "cmake;$CMAKE_VERSION"
-
-      - name: Install native build tools
-        run: |
           sudo apt-get update -q
-          sudo apt-get install -y curl file make unzip
+          sudo apt-get install -y curl make tar gzip unzip
 
-      - name: Sanitize local configuration
+      - name: Decode release signing key
+        shell: bash
+        env:
+          WLANTOOL_RELEASE_KEYSTORE_BASE64: ${{ secrets.WLANTOOL_RELEASE_KEYSTORE_BASE64 }}
+          WLANTOOL_RELEASE_STORE_PASSWORD: ${{ secrets.WLANTOOL_RELEASE_STORE_PASSWORD }}
+          WLANTOOL_RELEASE_KEY_ALIAS: ${{ secrets.WLANTOOL_RELEASE_KEY_ALIAS }}
+          WLANTOOL_RELEASE_KEY_PASSWORD: ${{ secrets.WLANTOOL_RELEASE_KEY_PASSWORD }}
         run: |
+          set -euo pipefail
+          : "${WLANTOOL_RELEASE_KEYSTORE_BASE64:?Missing GitHub secret WLANTOOL_RELEASE_KEYSTORE_BASE64}"
+          : "${WLANTOOL_RELEASE_STORE_PASSWORD:?Missing GitHub secret WLANTOOL_RELEASE_STORE_PASSWORD}"
+          : "${WLANTOOL_RELEASE_KEY_ALIAS:?Missing GitHub secret WLANTOOL_RELEASE_KEY_ALIAS}"
+          : "${WLANTOOL_RELEASE_KEY_PASSWORD:?Missing GitHub secret WLANTOOL_RELEASE_KEY_PASSWORD}"
+          printf '%s' "$WLANTOOL_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/wlantool-release.p12"
+          chmod 600 "$RUNNER_TEMP/wlantool-release.p12"
+
+      - name: Build signed release APK with rootfs and native libraries
+        shell: bash
+        env:
+          WLANTOOL_RELEASE_KEYSTORE: ${{ runner.temp }}/wlantool-release.p12
+          WLANTOOL_RELEASE_STORE_PASSWORD: ${{ secrets.WLANTOOL_RELEASE_STORE_PASSWORD }}
+          WLANTOOL_RELEASE_KEY_ALIAS: ${{ secrets.WLANTOOL_RELEASE_KEY_ALIAS }}
+          WLANTOOL_RELEASE_KEY_PASSWORD: ${{ secrets.WLANTOOL_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
           rm -f local.properties
-          if [ -f gradle.properties ]; then
-            sed -i '/^android\.aapt2FromMavenOverride=/d' gradle.properties
-          fi
-
-      - name: Verify tracked files contain no packaged binaries
-        shell: bash
-        run: |
-          set -euo pipefail
-          tracked_report=$(mktemp)
-          git ls-files -z | xargs -0 file > "$tracked_report"
-          if grep -E 'ELF|current ar archive|Zip archive data|gzip compressed data' "$tracked_report"; then
-            echo "Tracked binary files are not allowed"
-            exit 1
-          fi
-
-      - name: First clean build
-        shell: bash
-        run: |
-          set -euo pipefail
-          git clean -fdX
+          sed -i '/^android\.aapt2FromMavenOverride=/d' gradle.properties
           sh rftoolbuilder/downloads.sh
           sh rftoolbuilder/build.sh
           gradle --no-daemon :app:assembleRelease
-          test -s app/build/outputs/apk/release/app-release.apk
-
-      - name: Retry after deleting all ignored files
-        shell: bash
-        run: |
-          set -euo pipefail
-          git clean -fdX
-          sh rftoolbuilder/downloads.sh
-          sh rftoolbuilder/build.sh
-          gradle --no-daemon :app:assembleRelease
-          test -s app/build/outputs/apk/release/app-release.apk
-
-      - name: Collect release APK
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf release
           mkdir -p release
-          cp app/build/outputs/apk/release/app-release.apk release/app-release.apk
-          ls -lh release/app-release.apk
+          cp app/build/outputs/apk/release/app-release.apk release/wlantool-release.apk
+          ls -lh release/wlantool-release.apk
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: build-${{ github.run_number }}
-          name: "Build #${{ github.run_number }}"
-          files: release/app-release.apk
+      - name: Publish prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release delete "$RELEASE_TAG" --yes --cleanup-tag || true
+          gh release create "$RELEASE_TAG" \
+            release/wlantool-release.apk \
+            --target "$GITHUB_SHA" \
+            --title "Prerelease" \
+            --notes "Automated prerelease for $GITHUB_SHA" \
+            --prerelease

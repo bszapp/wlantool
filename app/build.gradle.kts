@@ -7,6 +7,15 @@ import org.gradle.api.tasks.TaskAction
 
 val generatedJniDir = layout.buildDirectory.dir("generated/native-jni")
 
+val releaseKeystorePath = providers.environmentVariable("WLANTOOL_RELEASE_KEYSTORE").orNull
+val releaseStorePassword = providers.environmentVariable("WLANTOOL_RELEASE_STORE_PASSWORD").orNull
+val releaseKeyAlias = providers.environmentVariable("WLANTOOL_RELEASE_KEY_ALIAS").orNull ?: "key0"
+val releaseKeyPassword = providers.environmentVariable("WLANTOOL_RELEASE_KEY_PASSWORD").orNull
+val hasReleaseSigning = !releaseKeystorePath.isNullOrBlank() &&
+    !releaseStorePassword.isNullOrBlank() &&
+    !releaseKeyAlias.isBlank() &&
+    !releaseKeyPassword.isNullOrBlank()
+
 // Proot binaries are produced by a CMake add_custom_command (not add_library),
 // so AGP 9.x does not automatically track them as native-build outputs.
 // Register the staging task output through the Variant Sources API instead of
@@ -78,14 +87,30 @@ android {
         localeFilters += listOf("zh")
     }
 
+    signingConfigs {
+        create("release") {
+            if (hasReleaseSigning) {
+                storeFile = file(releaseKeystorePath!!)
+                storePassword = releaseStorePassword!!
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword!!
+                storeType = "pkcs12"
+            }
+        }
+    }
+
     buildTypes {
         release {
             isDebuggable = false
             isMinifyEnabled = true
             isShrinkResources = true
-            // GitHub Actions does not run a separate signing step.
-            // The release APK is signed here with Android's default debug keystore.
-            signingConfig = signingConfigs.getByName("debug")
+            // CI injects the release signing key from GitHub Secrets.
+            // Local builds without those environment variables fall back to debug signing.
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
