@@ -1,3 +1,5 @@
+val generatedJniDir = layout.buildDirectory.dir("generated/native-jni").get().asFile
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -6,6 +8,7 @@ plugins {
 android {
     namespace = "io.github.bszapp.wlantool"
     compileSdk = 36
+    ndkVersion = "27.2.12479018"
 
     defaultConfig {
         applicationId = "io.github.bszapp.wlantool"
@@ -19,6 +22,12 @@ android {
 
         ndk {
             abiFilters += "arm64-v8a"
+        }
+
+        externalNativeBuild {
+            cmake {
+                arguments += "-DAPP_GENERATED_JNI_DIR=${generatedJniDir.absolutePath}"
+            }
         }
     }
 
@@ -44,6 +53,19 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+
+    sourceSets {
+        getByName("main") {
+            jniLibs.srcDir(generatedJniDir)
+        }
     }
 
     packaging {

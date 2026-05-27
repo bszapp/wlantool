@@ -3,7 +3,7 @@
 #ifndef W_DEFAULT_CONFIG_H_WAF
 #define W_DEFAULT_CONFIG_H_WAF
 
-#define SRCDIR "/data/data/com.termux/files/home/talloc-2.4.3"
+#define SRCDIR "."
 #define HAVE_SYS_UTSNAME_H 1
 #define SYSTEM_UNAME_SYSNAME "Linux"
 #define SYSTEM_UNAME_MACHINE "dontcare"

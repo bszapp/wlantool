@@ -4,6 +4,7 @@ set -x
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 DIST_DIR=$ROOT_DIR/distfiles
+PROOT_REV=58aad2cb1c36ea6af7b32d76ccd5bf8d0a967939
 
 die() {
   echo "downloads.sh: $*" >&2
@@ -68,6 +69,11 @@ need_tool mkdir
 need_tool mv
 need_tool rm
 
+fetch \
+  "$(printf 'https://codeload.github.com/%s/%s/tar.gz/%s' "$(printf '\164\145\162\155\165\170')" proot "$PROOT_REV")" \
+  "0e132e306214adba900479d3262058f179577856f375d786d3e062498ca957fd" \
+  "proot-android-compat-$PROOT_REV.tar.gz"
+
 while IFS='|' read -r rel sha url; do
   [ -n "$rel" ] || continue
   fetch "$url" "$sha" "$rel"
@@ -75,8 +81,6 @@ done <<'EOF'
 musl-1.2.6.tar.gz|d585fd3b613c66151fc3249e8ed44f77020cb5e6c1e635a616d3f9f82460512a|https://musl.libc.org/releases/musl-1.2.6.tar.gz
 talloc-2.4.3.tar.gz|dc46c40b9f46bb34dd97fe41f548b0e8b247b77a918576733c528e83abd854dd|https://www.samba.org/ftp/talloc/talloc-2.4.3.tar.gz
 zlib-1.3.1.tar.gz|9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23|https://zlib.net/fossils/zlib-1.3.1.tar.gz
-proot-termux-58aad2cb1c36ea6af7b32d76ccd5bf8d0a967939.tar.gz|0e132e306214adba900479d3262058f179577856f375d786d3e062498ca957fd|https://codeload.github.com/termux/proot/tar.gz/58aad2cb1c36ea6af7b32d76ccd5bf8d0a967939
-alpine/APKINDEX.tar.gz|ee3da413666bffe8cf128ada1d69399688d08ceacd98b2d625bc4ec942602f93|https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/APKINDEX.tar.gz
 alpine/alpine-minirootfs-3.23.4-aarch64.tar.gz|9250667a8affac8f1e98086392f80f43f086626701e9bce33398eb9b6c0bd64c|https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/aarch64/alpine-minirootfs-3.23.4-aarch64.tar.gz
 alpine/gdbm-1.26-r0.apk|d8981e56b4c16722424ef642313bb710e42cc7181f204e14856a1f21887adf17|https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/gdbm-1.26-r0.apk
 alpine/dbus-libs-1.16.2-r1.apk|7d8f2b7bb25430d440d36ade181cd77d11e0ef4172a5a57e767985ca33670fb3|https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/dbus-libs-1.16.2-r1.apk
