@@ -1,6 +1,6 @@
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
-import org.gradle.api.tasks.DisableCachingByDefault
+import org.gradle.work.DisableCachingByDefault
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
@@ -60,8 +60,6 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        resourceConfigurations += listOf("zh")
-
         ndk {
             abiFilters += "arm64-v8a"
         }
@@ -71,6 +69,10 @@ android {
                 arguments += "-DAPP_GENERATED_JNI_DIR=${generatedJniDir.get().asFile.absolutePath}"
             }
         }
+    }
+
+    androidResources {
+        localeFilters += listOf("zh")
     }
 
     buildTypes {
