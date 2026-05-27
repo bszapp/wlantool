@@ -1,37 +1,22 @@
-# WlanTool
+基于alpinelinux打包的一些wlan操作工具环境，android root直接运行
 
-Android app that packages a small Alpine-based WLAN tool environment and starts it through either `proot` or `chroot`.
+包含工具：
+- python 3.12
+- iw
+- wpa_supplicant
+- oneshot.py（详见 https://github.com/kimocoder/oneshot ）
 
-## Runtime layout
-
-- `rftoolbuilder/` downloads sources and assembles `rootfs.tar.gz`
-- `app/src/main/cpp/` builds `librftool.so`, `libproot.so`, and `libproot-loader.so` from source through CMake
-- `app/src/main/assets/rootfs.tar.gz` is generated, ignored, and copied into the APK at build time
-
-## Host requirements
-
-- JDK 17+
-- Gradle 9+
-- Android SDK command-line tools
-- Android NDK `27.2.12479018`
-- Android CMake `3.22.1`
-- `curl`, `make`, `file`, `unzip`
-
-## From-scratch build
-
-```sh
-git clean -fdX
-sh rftoolbuilder/downloads.sh
-sh rftoolbuilder/build.sh
-gradle --no-daemon :app:assembleRelease
+常用命令：
+```
+python3 oneshot.py -i wlan0 -K
 ```
 
-The second step downloads all source archives needed by both the rootfs packer and the Android native build.
-
-## Install on device
-
-```sh
-sudo pm install -r app/build/outputs/apk/release/app-release.apk
+```
+wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant.conf && wpa_cli -i wlan0
 ```
 
-If your local shell does not provide `sudo`, configure your local environment accordingly instead of changing the source tree.
+使用chroot才能运行上述命令，proot只能用python，其他权限不够
+
+chroot必须设备有root（su命令可用）
+
+其他：发行版使用github action构建，环境打包过程全透明，targetsdk36照样无权限运行proot
