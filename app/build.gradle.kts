@@ -1,5 +1,10 @@
 val generatedJniDir = layout.buildDirectory.dir("generated/native-jni").get().asFile
 
+// Proot binaries are produced by a CMake add_custom_command (not add_library),
+// so AGP 9.x does not automatically track them as native-build outputs.
+// We stage them into a dedicated directory that AGP does track via jniLibs.srcDir.
+val prootStagingDir = layout.buildDirectory.dir("generated/proot-jni")
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -64,7 +69,10 @@ android {
 
     sourceSets {
         getByName("main") {
-            jniLibs.srcDir(generatedJniDir)
+            // Use the staging directory so AGP sees libproot.so and libproot-loader.so
+            // as explicit JNI library inputs rather than relying on the shared cmake
+            // output directory (which AGP partially tracks via add_library outputs).
+            jniLibs.srcDir(prootStagingDir)
         }
     }
 
@@ -84,6 +92,41 @@ android {
     dependenciesInfo {
         includeInApk = false
         includeInBundle = false
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Stage proot binaries (produced by CMake add_custom_command) into a dedicated
+// directory so that AGP JNI-lib merging can track them as explicit inputs.
+// ---------------------------------------------------------------------------
+val stageProotLibs by tasks.registering(Copy::class) {
+    description = "Copies libproot.so and libproot-loader.so from CMake output into " +
+            "the proot JNI staging directory so AGP packages them in the APK."
+
+    // Source: CMake writes both proot executables into OUTPUT_ABI_DIR which is
+    //         APP_GENERATED_JNI_DIR/<abi>  =  generatedJniDir/<abi>.
+    from(generatedJniDir) {
+        include("**/libproot.so", "**/libproot-loader.so")
+    }
+    into(prootStagingDir)
+}
+
+// Wire task dependencies:
+//   externalNativeBuild* (CMake builds libproot.so) → stageProotLibs → merge*NativeLibs
+afterEvaluate {
+    // stageProotLibs must run after all externalNativeBuild tasks
+    tasks.matching { it.name.startsWith("externalNativeBuild") }.configureEach {
+        stageProotLibs.get().dependsOn(this)
+    }
+
+    // JNI-lib merge tasks must run after stageProotLibs so they see the staged files
+    tasks.matching { task ->
+        val n = task.name
+        (n.startsWith("merge") && n.endsWith("NativeLibs")) ||
+        (n.startsWith("merge") && n.endsWith("JniLibFolders")) ||
+        (n.startsWith("merge") && n.endsWith("JniLibs"))
+    }.configureEach {
+        dependsOn(stageProotLibs)
     }
 }
 
