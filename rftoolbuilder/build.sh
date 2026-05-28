@@ -58,6 +58,7 @@ for required in \
   "$DIST_DIR/alpine/wireless-tools-libs-30_pre9-r5.apk" \
   "$DIST_DIR/alpine/wireless-tools-30_pre9-r5.apk" \
   "$DIST_DIR/alpine/pcre-8.45-r4.apk" \
+  "$DIST_DIR/alpine/pcre2-10.47-r0.apk" \
   "$DIST_DIR/alpine/grep-3.12-r0.apk" \
   "$DIST_DIR/alpine/sqlite-3.51.2-r0.apk" \
   "$DIST_DIR/alpine/aircrack-ng-1.7-r3.apk" \
@@ -102,6 +103,7 @@ for pkg in \
   wireless-tools-libs-30_pre9-r5.apk \
   wireless-tools-30_pre9-r5.apk \
   pcre-8.45-r4.apk \
+  pcre2-10.47-r0.apk \
   grep-3.12-r0.apk \
   sqlite-3.51.2-r0.apk \
   aircrack-ng-1.7-r3.apk \

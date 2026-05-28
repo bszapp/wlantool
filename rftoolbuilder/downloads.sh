@@ -116,6 +116,7 @@ alpine/ethtool-6.15-r0.apk||https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aar
 alpine/wireless-tools-libs-30_pre9-r5.apk||https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/wireless-tools-libs-30_pre9-r5.apk
 alpine/wireless-tools-30_pre9-r5.apk||https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/wireless-tools-30_pre9-r5.apk
 alpine/pcre-8.45-r4.apk||https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/pcre-8.45-r4.apk
+alpine/pcre2-10.47-r0.apk||https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/pcre2-10.47-r0.apk
 alpine/grep-3.12-r0.apk||https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/grep-3.12-r0.apk
 alpine/sqlite-3.51.2-r0.apk||https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/sqlite-3.51.2-r0.apk
 alpine/aircrack-ng-1.7-r3.apk||https://dl-cdn.alpinelinux.org/alpine/v3.23/community/aarch64/aircrack-ng-1.7-r3.apk
