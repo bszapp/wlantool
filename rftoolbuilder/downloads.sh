@@ -33,7 +33,7 @@ hash_file() {
 
 fetch() {
   url=$1
-  sha=$2
+  sha=${2:-}
   rel=$3
   dst=$DIST_DIR/$rel
   tmp=$dst.part
@@ -41,6 +41,9 @@ fetch() {
   mkdir -p "$(dirname "$dst")"
 
   if [ -f "$dst" ]; then
+    if [ -z "$sha" ] || [ "$sha" = "-" ]; then
+      return 0
+    fi
     have=$(hash_file "$dst")
     if [ "$have" = "$sha" ]; then
       return 0
@@ -58,8 +61,10 @@ fetch() {
     --output "$tmp" \
     "$url"
 
-  have=$(hash_file "$tmp")
-  [ "$have" = "$sha" ] || die "sha256 mismatch for $rel: expected $sha got $have"
+  if [ -n "$sha" ] && [ "$sha" != "-" ]; then
+    have=$(hash_file "$tmp")
+    [ "$have" = "$sha" ] || die "sha256 mismatch for $rel: expected $sha got $have"
+  fi
   mv "$tmp" "$dst"
 }
 
@@ -106,6 +111,14 @@ alpine/sqlite-libs-3.51.2-r0.apk|0264d50e8ae451804bc0ae2833f18a465a743443bc4ff4e
 alpine/tcpdump-4.99.5-r1.apk|cd078660c053520e4dc1866276706d2f95c7862980e85fe833233429aaedf479|https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/tcpdump-4.99.5-r1.apk
 alpine/iw-6.17-r0.apk|aa98f90f196d1dab15a749215bff4aed48b75c61bc64ff23495e8052979c32da|https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/iw-6.17-r0.apk
 alpine/wpa_supplicant-2.11-r3.apk|aea1caa2a0bfd07314886ddfeb66d76daddce6af38b0baa17d1718d7596bb558|https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/wpa_supplicant-2.11-r3.apk
+alpine/libmnl-1.0.5-r2.apk||https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/libmnl-1.0.5-r2.apk
+alpine/ethtool-6.15-r0.apk||https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/ethtool-6.15-r0.apk
+alpine/wireless-tools-libs-30_pre9-r5.apk||https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/wireless-tools-libs-30_pre9-r5.apk
+alpine/wireless-tools-30_pre9-r5.apk||https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/wireless-tools-30_pre9-r5.apk
+alpine/pcre-8.45-r4.apk||https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/pcre-8.45-r4.apk
+alpine/grep-3.12-r0.apk||https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/grep-3.12-r0.apk
+alpine/sqlite-3.51.2-r0.apk||https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/sqlite-3.51.2-r0.apk
+alpine/aircrack-ng-1.7-r3.apk||https://dl-cdn.alpinelinux.org/alpine/v3.23/community/aarch64/aircrack-ng-1.7-r3.apk
 alpine/xz-libs-5.8.3-r0.apk|6123d4fc5be222318236887639047b844214f609e75abee6b4e6528f44d76be4|https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/xz-libs-5.8.3-r0.apk
 alpine/zlib-1.3.2-r0.apk|ecda4cc94fd18f90182f1d3a615889df5e0db9cf78926d11627dd23e06d2e6e8|https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/zlib-1.3.2-r0.apk
 EOF

@@ -53,6 +53,14 @@ for required in \
   "$DIST_DIR/alpine/tcpdump-4.99.5-r1.apk" \
   "$DIST_DIR/alpine/iw-6.17-r0.apk" \
   "$DIST_DIR/alpine/wpa_supplicant-2.11-r3.apk" \
+  "$DIST_DIR/alpine/libmnl-1.0.5-r2.apk" \
+  "$DIST_DIR/alpine/ethtool-6.15-r0.apk" \
+  "$DIST_DIR/alpine/wireless-tools-libs-30_pre9-r5.apk" \
+  "$DIST_DIR/alpine/wireless-tools-30_pre9-r5.apk" \
+  "$DIST_DIR/alpine/pcre-8.45-r4.apk" \
+  "$DIST_DIR/alpine/grep-3.12-r0.apk" \
+  "$DIST_DIR/alpine/sqlite-3.51.2-r0.apk" \
+  "$DIST_DIR/alpine/aircrack-ng-1.7-r3.apk" \
   "$DIST_DIR/alpine/xz-libs-5.8.3-r0.apk" \
   "$DIST_DIR/alpine/zlib-1.3.2-r0.apk"; do
   [ -f "$required" ] || die "missing distfile: $required"
@@ -89,6 +97,14 @@ for pkg in \
   tcpdump-4.99.5-r1.apk \
   iw-6.17-r0.apk \
   wpa_supplicant-2.11-r3.apk \
+  libmnl-1.0.5-r2.apk \
+  ethtool-6.15-r0.apk \
+  wireless-tools-libs-30_pre9-r5.apk \
+  wireless-tools-30_pre9-r5.apk \
+  pcre-8.45-r4.apk \
+  grep-3.12-r0.apk \
+  sqlite-3.51.2-r0.apk \
+  aircrack-ng-1.7-r3.apk \
   xz-libs-5.8.3-r0.apk \
   zlib-1.3.2-r0.apk; do
   tar -xzf "$DIST_DIR/alpine/$pkg" -C "$ROOTFS_STAGE"
